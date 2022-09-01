@@ -1,7 +1,7 @@
 # EngineSimulatorSelector
 ![logo](https://user-images.githubusercontent.com/65334355/187918447-ddb972a6-ce34-4173-994f-a3c7f5ca97d8.png)
 
-open to feedback
+unofficial
 
 
 Install:
