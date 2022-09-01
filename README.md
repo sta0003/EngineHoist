@@ -18,4 +18,8 @@ Engine Selector reads all folders in /engines as manufacturer names then all fil
 then searches inside the engine files for the function names and one start simulator is pressed updates main.mr
 
 
+
+full install of simulator and selector:
+https://youtu.be/faZYpp-vGeg
+
 ![image](https://user-images.githubusercontent.com/65334355/187917960-553c4921-2938-4c5a-bc3d-3843af9a0a54.png)
