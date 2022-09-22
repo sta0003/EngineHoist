@@ -7,7 +7,7 @@ Engine Swap is designed to make your life of changing your engines easy, providi
 the engine you want and st art the simulator without any need to change the config files.
 
 Install:
-1. download the EngineSelector.exe from https://github.com/sta0003/EngineSimulatorSelector/releases/latest
+1. download the EngineSelector.exe from https://github.com/sta0003/EngineSwap/releases/latest
 2. place exe in root folder (engine-sim-build)
 3. select an engine (Should pick up on all your engines)
 4. press start simulator
