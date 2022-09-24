@@ -6,8 +6,10 @@ unofficial
 Engine Hoist is designed to make your life of changing your engines easy, providing a simple gui for you to select,
 the engine you want and st art the simulator without any need to change the config files.
 
+first have https://github.com/ange-yaghi/engine-sim installed
+
 Install:
-1. download the EngineSelector.exe from https://github.com/sta0003/EngineHoist/releases/latest
+1. download the EngineHoist.exe from https://github.com/sta0003/EngineHoist/releases/latest
 2. place exe in root folder (engine-sim-build)
 3. select an engine (Should pick up on all your engines)
 4. press start simulator
