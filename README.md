@@ -27,3 +27,5 @@ full install of simulator and Engine Hoist:
 https://youtu.be/faZYpp-vGeg
 
 ![image](https://user-images.githubusercontent.com/65334355/187917960-553c4921-2938-4c5a-bc3d-3843af9a0a54.png)
+
+Download count: https://tooomm.github.io/github-release-stats/?username=sta0003&repository=EngineHoist
