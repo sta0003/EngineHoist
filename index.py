@@ -13,7 +13,7 @@
 # E006 Failed to start simulator
 
 
-
+//https://docs.python.org/3/library/tkinter.html
 from tkinter import *
 import glob
 import os
