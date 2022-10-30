@@ -1,298 +1,515 @@
-# created by: Ashton Stack
-# description: This is a simple program that will create a Tkinter GUI that will allow the user to select engines from a list and then change the engine in the main.mr file.
-
-# copyright: (c) 2022 Ashton Stack
+# Created by sta0003
+# 
+# Copyright sta0003 (c) 2022
+#
+# This file is part of Engine Hoist.
+#
+# Engine Hoist is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Engine Hoist is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Engine Hoist.  If not, see <https://www.gnu.org/licenses/>.
 # 
 
-# Error codes:
-# E001 Failed to find directory
-# E002 Failed to load engines
-# E003 Failed to open file
-# E004 Failed to load main.mr
-# E005 Failed to set engine
-# E006 Failed to start simulator
-
-
-//https://docs.python.org/3/library/tkinter.html
-from tkinter import *
-import glob
-import os
+from random import randint as rand
 from tkinter import messagebox
+from tkinter import *
 import webbrowser
-import requests
 import platform
+try: import pyi_splash 
+except: pass
+import requests
+import glob
+import re
+import os
 
-try:
-    import pyi_splash
-except:
-    pyi = False
+enginesFileLocation = "./assets/engines/**/*.mr"
+mainLocation        = os.getcwd() +"/assets/main.mr"
+configLocation      = "./hoist.cfg"
+themesLocation      = "./assets/themes/*.mr"
+appLocation         = "engine-sim-app.exe"
+mainDir             = os.getcwd()
+version             = "1.4.0-development"
+engineLocations     = []
+failedEngines       = []
 
 
 
-# main variables
-
-version = "1.2.0"
-
-mainDir = os.getcwd()
-osName = None
-enginesLocation = "./assets/engines/**/*.mr"
-mainLocation    = "./assets/main.mr"
-configLocation  = "./selector.cfg"
-appLocation     = None
-configLoaded    = False
-config          = None
-darkMode        = False
-unLoadedEngines = []
-loadedEngines   = {}
-windowHeight = 700
-windowWidth = 700
+# config bools
+darkMode            = False
+shareAnalytics      = None
+promptToUpdate      = True
+units               = "metric"
+simTheme            = "default"
 
 # tk window setup
 root = Tk()
-root.title("Engine Selector")
+root.title("Engine Hoist")
 root.geometry(str(700) + "x" + str(700))
 root.resizable(False, False)
-i = 0
-while i < 4:
-    root.columnconfigure(i,weight=1)
-    i += 1
-i=0
-while i < 2:
-    root.rowconfigure(i,weight=1)
-    i += 1
+root.columnconfigure(0,weight=1)
+root.rowconfigure(0,weight=1)
+
+mainWindow = Frame(root)
+configWindow = Frame(root)
+# Check Variables
+darkModeCB = BooleanVar()
+shareAnalyticsCB = BooleanVar()
+promptToUpdateCB = BooleanVar()
+unitsCB = StringVar()
+
+# get vehicle infomation
+class vehicleInfo:
+    def getMainFunction(file):
+        with open(file, "r") as f:
+            for line in f:
+                if "public node main {" in line:
+                    return True
+        
+    def getEngineName(file):
+        with open(file, "r") as f:
+            for line in f:
+                if " name:" in line:
+                    return line.split("\"")[1]
+
+    def getEngineFunctionName(file):
+        with open(file, "r") as f:
+            for line in f:
+                if re.match(r"^public node", line):
+                    next_line = f.readline()
+                    if re.match(r'^\s*alias output __out: engine;', next_line):
+                        return line.split()[2]
+
+    def getEngineBrand(file):
+        return file.split("/")[3]
+
+    def getEngineFileName(file):
+        return file.split("/")[-1]
+
+    def getVehicleName(file):
+        with open(file, "r") as f:
+            for line in f:
+                if re.match(r"^public node", line):
+                    next_line = f.readline()
+                    if re.match(r'^\s*alias output __out: vehicle;', next_line):
+                        return line.split()[2]
+
+    def getTransmissionName(file):
+        with open(file, "r") as f:
+            for line in f:
+                if re.match(r"^public node", line):
+                    next_line = f.readline()
+                    if re.match(r'^\s*alias output __out: transmission;', next_line):
+                        return line.split()[2]
+
+class themeInfo:
+    def getThemeName(file):
+        file = "./assets/themes/{}.mr".format(file)
+        with open(file, "r") as f:
+            for line in f:
+                if re.match(r"^\s*unit_names units()", line):
+                    next_line = f.readline()
+                    if re.match(r'^public node', next_line):
+                        return next_line.split()[2]
+
+# edit main file with selected engine
+def createMainFile(engine, theme):
+    themeFunctionName   = themeInfo.getThemeName(theme)
+    engineFunctionName  = vehicleInfo.getEngineFunctionName(engine)
+    vehicleName         = vehicleInfo.getVehicleName(engine)
+    transmissionName    = vehicleInfo.getTransmissionName(engine)
+    newEngineName       = vehicleInfo.getMainFunction(engine)
+    def writeFile(f):
+        f.write("// This file was generated by Engine Hoist V" + version + "\n")
+        f.write("// remove these comments to prevent this file from being overwritten\n")
+        f.write('import "engine_sim.mr"\n')
+        f.write('import "themes/{}.mr"\n'.format(theme))
+        f.write('import "{}"\n\n'.format(engine.replace("./assets/","",1)))
+        f.write('unit_names units()\n')
+        if units == "metric":
+            f.write('{}(speed_units: units.kph,pressure_units: units.bar,torque_units: units.Nm,power_units: units.kW)\n'.format(themeFunctionName))
+        else:
+            f.write('{}(speed_units: units.mph, pressure_units: units.inHg, torque_units: units.lb_ft, power_units: units.hp)\n'.format(themeFunctionName))
+        if newEngineName:
+            f.write('main()\n')
+        else:
+            f.write('set_engine({}())\n'.format(engineFunctionName))
+            if vehicleName:
+                f.write('set_vehicle({}())\n'.format(vehicleName))
+            if transmissionName:
+                f.write('set_transmission({}())\n'.format(transmissionName))
+    
+    with open((mainLocation), 'r') as f:
+        if f.readline().startswith("// This file was generated by Engine Hoist"):
+            f.close()
+            with open((mainLocation), 'w') as f:
+                writeFile(f)
+        else:
+            with open((mainDir +"/assets/main.mr.OLD"), 'w') as f2:
+                backup = f.read()
+                f2.write(backup)
+            with open((mainLocation), 'w') as f:
+                writeFile(f)
+
+class tkinterApp:
+    def checkBoxes():
+        global darkMode, shareAnalytics, promptToUpdate, units
+        if darkMode != darkModeCB.get():
+            tkinterApp.toggleDarkmode()
+        else:
+            darkMode = darkModeCB.get()
+
+        shareAnalytics = shareAnalyticsCB.get()
+        promptToUpdate = promptToUpdateCB.get()
+        units = unitsCB.get()
+
+        config.export()
 
 
+    def mainWindow():
+        configWindow.grid_remove()
+        mainWindow.grid(row=0, column=0, sticky="nsew")
 
+        tkinterApp.updateManufacturerList()
 
-def start():
-    global appLocation
-    try:
-        pyi_splash.close()
-    except:
-        A=1    
-    # search for gamefile.
-    # osName = platform.system()
-    # if osName == "Windows":
-    mainWindow.createWindow()
-    # for core in glob.glob("./**/engine-sim-app.exe", recursive=True): 
-    #     appLocation = core
-    appLocation = "engine-sim-app.exe"
-    # else:
-    #     mainWindow.createWindow()
-    #     for core in glob.glob("./**/engine-sim-app", recursive=True):
-    #         appLocation = core
+    def configWindow():
+        mainWindow.grid_remove()
+        configWindow.grid(row=0, column=0, sticky="nsew")
 
+    def updateManufacturerList():
+        manufacturerList.delete(0, END)
+        for engine in engineLocations:
+            if vehicleInfo.getEngineBrand(engine).upper() not in manufacturerList.get(0, END):
+                manufacturerList.insert(END, vehicleInfo.getEngineBrand(engine).upper())
 
+    def updateThemeList():
+        themeList.delete(0, END)
+        for theme in glob.glob(themesLocation):
+            theme = theme.replace("\\","/",1)
+            themeList.insert(END, (theme.split("/")[-1].split(".")[0]))
 
-    response = requests.get("https://api.github.com/repos/sta0003/EngineSimulatorSelector/releases")
+    def toggleDarkmode():
+        global darkMode
+        if darkMode:
+            tkinterApp.darkmodeDeactivate()
+        else:
+            tkinterApp.darkmodeActivate()
+            
+    def darkmodeActivate():
+        global darkMode
+        manufacturerList.config(bg="#2d2d2d", fg="#ffffff")
+        engineList.config(bg="#2d2d2d", fg="#ffffff")
+        startBtn.config(bg="#2d2d2d", fg="#ffffff")
+        closeBtn.config(bg="#2d2d2d", fg="#ffffff")
+        settingsBtn.config(bg="#2d2d2d", fg="#ffffff")
+        root.config(bg="#2d2d2d")
+
+        darkModeCheck.config(bg="#2d2d2d", fg="#ffffff", selectcolor="#2d2d2d")
+        analyticsCheck.config(bg="#2d2d2d", fg="#ffffff", selectcolor="#2d2d2d")
+        updateCheck.config(bg="#2d2d2d", fg="#ffffff", selectcolor="#2d2d2d")
+        metricCheck.config(bg="#2d2d2d", fg="#ffffff", selectcolor="#2d2d2d")
+        returnBtn.config(bg="#2d2d2d", fg="#ffffff")
+        themeLabel.config(bg="#2d2d2d", fg="#ffffff")
+        themeList.config(bg="#2d2d2d", fg="#ffffff")
+        
+        darkMode = True
+        darkModeCheck.select()
+        config.export()
+        
+    
+    def darkmodeDeactivate():
+        global darkMode
+        manufacturerList.config(bg="#ffffff", fg="#000000")
+        engineList.config(bg="#ffffff", fg="#000000")
+        startBtn.config(bg="#ffffff", fg="#000000")
+        closeBtn.config(bg="#ffffff", fg="#000000")
+        settingsBtn.config(bg="#ffffff", fg="#000000")
+        root.config(bg="#ffffff")
+        
+        darkModeCheck.config(bg="#ffffff", fg="#000000", selectcolor="#ffffff")
+        analyticsCheck.config(bg="#ffffff", fg="#000000", selectcolor="#ffffff")
+        updateCheck.config(bg="#ffffff", fg="#000000", selectcolor="#ffffff")
+        metricCheck.config(bg="#ffffff", fg="#000000", selectcolor="#ffffff")
+        returnBtn.config(bg="#ffffff", fg="#000000")
+        themeLabel.config(bg="#ffffff", fg="#000000")
+        themeList.config(bg="#ffffff", fg="#000000")
+        
+        darkMode = False
+        darkModeCheck.deselect()
+        config.export()
+
+    def manufacturerSelected(event):
+        engineList.delete(0,END)
+        for engine in engineLocations:
+            if vehicleInfo.getEngineBrand(engine).upper() == manufacturerList.get(manufacturerList.curselection()):
+                try: 
+                    engineList.insert(END, (vehicleInfo.getEngineName(engine) + " ("+ vehicleInfo.getEngineFileName(engine) +")"))
+                except: 
+                    engineList.insert(END, ("(UNKNOWN FORMAT) ("+ vehicleInfo.getEngineFileName(engine) +")"))
+                    
+
+    def onKeyPress(event):
+        if event.char == "d":
+            tkinterApp.toggleDarkmode()
+        if event.char == "s":
+            simulator.start()
+    
+    def onEscape(event):
+        tkinterApp.close()
+    
+    def close():
+        root.destroy()
+
+class config:
+
+    def export():
+        config = open(configLocation,"w")
+        config.write("darkMode : " + str(darkMode))
+        config.write("\nshareAnalytics : " + str(shareAnalytics))
+        config.write("\npromptToUpdate : " + str(promptToUpdate))
+        config.write("\nunits : " + str(units))
+        config.write("\ntheme : " + str(simTheme))
+        config.close()
+    
+    def load():
+        global darkMode, shareAnalytics, promptToUpdate, units, simTheme
+        if os.path.exists(configLocation):
+            configFile = open(configLocation,"r").read()
+            # confirm user has accepted to share analytics
+            if "shareAnalytics" not in configFile:
+                confirm = messagebox.askyesno("Share Usage Analytics", "Would you like to share anonymous usage analytics? This will help improve the program and make it more useful for you. You can change this setting at any time in the config file.", icon="question")
+                if confirm:
+                    shareAnalytics = True
+                else:
+                    shareAnalytics = False
+
+            # load settings perline
+            configFile = configFile.split("\n")
+            try:
+                if configFile[0].split(" : ")[0] == "darkMode":
+                    global darkMode
+                    if configFile[0].split(" : ")[1] == "True":
+                        tkinterApp.darkmodeActivate()
+
+                if configFile[1].split(" : ")[0] == "shareAnalytics":
+                    if configFile[1].split(" : ")[1] == "True":
+                        shareAnalytics = True
+                        analyticsCheck.select()
+                    elif configFile[1].split(" : ")[1] == "False":
+                        shareAnalytics = False
+                    else:
+                        confirm = messagebox.askquestion("Share Usage Analytics", "Would you like to share anonymous usage analytics? This will help improve the program and make it more useful for you. You can change this setting at any time in the config file.", icon="question")
+                        if confirm == "yes":
+                            shareAnalytics = True
+                            analyticsCheck.select()
+                        else:
+                            shareAnalytics = False
+
+                if configFile[2].split(" : ")[0] == "promptToUpdate":
+                    if configFile[2].split(" : ")[1] == "True":
+                        promptToUpdate = True
+                        updateCheck.select()
+                    elif configFile[2].split(" : ")[1] == "False":
+                        promptToUpdate = False
+
+                if configFile[3].split(" : ")[0] == "units":
+                    if configFile[3].split(" : ")[1] == "metric":
+                        units = "metric"
+                        metricCheck.select()
+                    elif configFile[3].split(" : ")[1] == "imperial":
+                        units = "imperial"
+            except:
+                pass
+
+            config.export()
+
+        else:
+            configFile = open(configLocation,"w")
+            configFile.write("")
+            configFile.close()
+
+class simulator:
+    def start():
+        # try:
+        for engine in engineLocations:
+            if len(engineList.curselection()) <1: break
+            if "UNKNOWN" in engineList.get(engineList.curselection()):
+                messagebox.showerror("Error", "This engine is not supported by this version of Engine Hoist. \n Unknow engine format.")
+                return
+            else:
+                if engine in failedEngines:
+                    continue
+                elif engineList.get(engineList.curselection()) == vehicleInfo.getEngineName(engine) + " ("+ vehicleInfo.getEngineFileName(engine) +")":
+                    try:
+                        theme = themeList.get(themeList.curselection())
+                    except:
+                        theme = "Default"
+                    createMainFile(engine, theme)
+                    break
+        root.withdraw()
+        if platform.system() == "Linux":
+            os.chdir(os.getcwd() + "/build")
+            os.system(os.getcwd() + "/engine-sim-app")
+        else:
+            os.chdir(os.getcwd() + "/bin")
+            os.system(appLocation)
+        root.deiconify()
+        os.chdir(mainDir)
+        # except Exception as e:
+        #     print(e)
+        #     messagebox.showerror("ERROR","Failed to start simulator\n(Error: {})".format(e))
+    def validate():
+        if len(engineList.curselection()) <1:
+            messagebox.showerror("ERROR","No engine selected")
+        else:
+            simulator.start()
+    
+
+# Main function
+def main():
+    global engineLocations
+    config.load()
+    tkinterApp.updateThemeList()
+    for location in glob.glob(enginesFileLocation, recursive=True):
+        engineLocations.append(location.replace("\\","/"))
+    
+    for engine in engineLocations:
+        if vehicleInfo.getEngineName(engine):
+            continue
+        else:
+            failedEngines.append(engine)
+        
+        
+    response = requests.get("https://api.github.com/repos/sta0003/EngineHoist/releases")
     try:
         
         latestRelease = response.json()[0]["tag_name"]
         if latestRelease == "V" + version:
-            root.title("Engine Selector V" + version)
+            root.title("Engine hoist V" + version)
         else:
-            root.title("Engine Selector | V" + version + " | Update Available " + response.json()[0]["tag_name"])
+            global promptToUpdate
+            if "development" in version:
+                root.title("Engine hoist V" + version)
+            else:
+                root.title("Engine hoist | V" + version + " | Update Available " + response.json()[0]["tag_name"])
+                if promptToUpdate or rand(0,10) == 3:
+                    confirm = messagebox.askyesno("Update Available", "An update is available for Engine Hoist. Would you like to download it now?", icon="question")
+                    if confirm:
+                        webbrowser.open("https://github.com/sta0003/EngineHoist/releases/latest")
+                    else:
+                        confirm = messagebox.askyesno("Would you like to be prompted to update in the future?", "Would you like to be prompted to update in the future?", icon="question")
+                        if not confirm:
+                            promptToUpdate = False
+                            config.export()
 
     except:
-        root.title("Engine Selector" + " | Update Check Failed")
+        root.title("Engine hoist" + " | Update Check Failed")
+
+def selfUpdater():
+    latestRelease = requests.get("https://api.github.com/repos/sta0003/EngineHoist/releases").json()[0]["tag_name"]
+    downloadRealease = requests.get("https://api.github.com/repos/sta0003/EngineHoist/releases").json()[0]["assets"][0]["browser_download_url"]
+
+##### MAIN WINDOW #####
+startBtn = Button(mainWindow, text="START \nSIMULATOR", command=simulator.start)
+closeBtn = Button(mainWindow, text="CLOSE", command=tkinterApp.close)
+manufacturerList = Listbox(mainWindow, height=15, width=50, selectmode="SINGLE", exportselection=False)
+engineList = Listbox(mainWindow, height=15, width=50, selectmode="SINGLE", exportselection=False)
+settingsBtn = Button(mainWindow, text="SETTINGS", command=tkinterApp.configWindow)
+manufacturerList.bind('<<ListboxSelect>>', tkinterApp.manufacturerSelected)
+root.bind('<KeyPress>', tkinterApp.onKeyPress)
+root.bind('<Escape>', tkinterApp.onEscape)
+root.protocol("WM_DELETE_WINDOW", tkinterApp.close)
+
+startBtn.grid(row=1, column=0, columnspan=3, sticky="nsew")
+closeBtn.grid(row=1, column=3, columnspan=1, sticky="nsew")
+manufacturerList.grid(row=0, column=0, columnspan=2 , sticky="nsew")
+engineList.grid(row=0, column=2, columnspan=2, sticky="nsew")
+settingsBtn.grid(row=2, column=0, columnspan=4, sticky="nsew")
+startBtn.config(font=("Montserrat", 30))
+closeBtn.config(font=("Montserrat", 30))
+manufacturerList.config(font=("Montserrat", 15))
+engineList.config(font=("Montserrat", 15))
+settingsBtn.config(font=("Montserrat", 15))
+
+i = 0
+while i < 4:
+    mainWindow.columnconfigure(i,weight=1)
+    i += 1
+i=0
+while i < 3:
+    mainWindow.rowconfigure(i,weight=1)
+    i += 1
 
 
-
-class config():
-    
-    def export():
-        config = open(configLocation,"w")
-        config.write("darkMode : " + str(darkMode))
-        config.close()
-    
-    def loadConfig():
-        global darkMode
-        if os.path.exists(configLocation):
-        
-            config = open(configLocation,"r").read()
-            config = config.split("\n")
-            for setting in config:
-                setting = setting.split(" : ")
-                if setting[0] == "darkMode":
-                    global darkMode
-                    if setting[1] == "True":
-                        darkMode = True
-                        mainWindow.darkMode(False)
-                    else:
-                        mainWindow.darkMode(True)
-                        darkMode = False
-        else:
-            config = open(configLocation,"w")
-            config.write("")
-            config.close()
+##### CONFIG WINDOW #####
+darkModeCheck   = Checkbutton(configWindow, text="Dark Mode", variable=darkModeCB, onvalue=True, offvalue=False, command=tkinterApp.checkBoxes)
+analyticsCheck  = Checkbutton(configWindow, text="Share Usage Analytics", variable=shareAnalyticsCB, onvalue=True, offvalue=False, command=tkinterApp.checkBoxes)
+updateCheck     = Checkbutton(configWindow, text="Prompt to update", variable=promptToUpdateCB, onvalue=True, offvalue=False, command=tkinterApp.checkBoxes)
+metricCheck     = Checkbutton(configWindow, text="Metric Units", variable=unitsCB, onvalue="metric", offvalue="imperial", command=tkinterApp.checkBoxes)
+returnBtn       = Button(configWindow, text="Return", command=tkinterApp.mainWindow)
+themeLabel      = Label(configWindow, justify="right", text="Theme Selection")
+themeList       = Listbox(configWindow, height=15, selectmode="SINGLE", exportselection=False)
 
 
+# left column
+darkModeCheck.grid  (row=0, column=0, sticky="nsew")
+analyticsCheck.grid (row=1, column=0, sticky="nsew")
+updateCheck.grid    (row=2, column=0, sticky="nsew")
+metricCheck.grid    (row=3, column=0, sticky="nsew")
+# right column
+themeLabel.grid     (row=0, column=1, sticky="nsew")
+themeList.grid      (row=1, column=1, rowspan=3, sticky="nsew")
 
-class tools():
-    def resetMain():
-        main = open(mainLocation, 'w')
-        main.write("import \"engine_sim.mr\"\nimport \"themes/default.mr\"\nimport \"engines/audi/i5.mr\"\n\nuse_default_theme()\nset_engine(\n    audi_i5_2_2L()\n)")
-        main.close()
-
-
-
-# class for the engine selector
-class engineClass():
-    def findEngines():
-        manufacturerList.delete(0,END)
-        engineList.delete(0,END)
-        
-        for f in glob.glob(enginesLocation, recursive=True):
-            unLoadedEngines.append(f.replace("\\","/"))
-        x = 0
-        for engine in unLoadedEngines:
-            with open(engine) as f:
-                i = 0
-                engineName = ""
-                engineFunction = ""
-                engineBrand = unLoadedEngines[x].split("/")[3]
-                lines = f.readlines()
-                for line in lines:
-                    if line != "\n":
-                        if line.startswith("public node"):
-                            if  "alias output __out: engine;" in lines[i+1]:
-                                engineFunction = (line.split()[2])
-                        if " name:" in line:
-                            engineName = line.split("\"")[1]
-                    i += 1
-                f.close()
-                if engineBrand.upper() not in manufacturerList.get(0,END):
-                    manufacturerList.insert(END,(engineBrand.upper()))
-                    
-                engineName = engineName + " (" + str(engineFunction) + ")"  
-                      
-                loadedEngines[engineName] = engineFunction , engineBrand , unLoadedEngines[x]
-            x += 1
-            
-            
-    def setEngine(engine):
-        try:
-            with open(mainLocation, 'r') as f:
-                i = 0
-                lines = f.readlines()
-                for line in lines:
-                    if line != "\n":
-                        if "engines" in line:
-                            lines[i] = ("import \"" + loadedEngines[engine][2][9:] + "\"\n")
-                        if line.startswith("set_engine"):
-                            lines[i+2] = "    " + loadedEngines[engine][0] + "()\n"
-                            open(mainLocation, 'w').writelines(lines)
-                        i += 1
-        except:
-            messagebox.showerror("ERROR","Failed to set engine (E005)")
-
-    
-    def startSimulator():
-        try:
-            for engine in loadedEngines.keys():
-                if len(engineList.curselection()) <1: break
-                if engineList.get(engineList.curselection()) == engine:
-                    engineClass.setEngine(engine)
-                    break
-        except:
-            messagebox.showerror("ERROR","Failed to start simulator (E006)")
-        
-        root.withdraw()
-        os.chdir(os.getcwd() + "/bin")
-        os.system(appLocation)
-        root.deiconify()
-        os.chdir(mainDir)
-
-# class for the GUI
-class mainWindow():
-    def createWindow():
-        startBtn.grid(row=1, column=0, columnspan=3, sticky="nsew")
-        closeBtn.grid(row=1, column=3, columnspan=1, sticky="nsew")
-        manufacturerList.grid(row=0, column=0, columnspan=2 , sticky="nsew")
-        engineList.grid(row=0, column=2, columnspan=2, sticky="nsew")
-        startBtn.config(font=("Montserrat", 30))
-        closeBtn.config(font=("Montserrat", 30))
-        manufacturerList.config(font=("Montserrat", 15))
-        engineList.config(font=("Montserrat", 15))
-    def darkMode(mode):
-        global darkMode
-        if not mode:
-            manufacturerList.config(bg="#2d2d2d", fg="#ffffff")
-            engineList.config(bg="#2d2d2d", fg="#ffffff")
-            startBtn.config(bg="#2d2d2d", fg="#ffffff")
-            closeBtn.config(bg="#2d2d2d", fg="#ffffff")
-            root.config(bg="#2d2d2d")
-            darkMode = True
-        else:
-            manufacturerList.config(bg="#ffffff", fg="#000000")
-            engineList.config(bg="#ffffff", fg="#000000")
-            startBtn.config(bg="#ffffff", fg="#000000")
-            closeBtn.config(bg="#ffffff", fg="#000000")
-            root.config(bg="#ffffff")
-            darkMode = False
-        config.export()
-    def toggelDarkmode():
-        if darkMode:
-            mainWindow.darkMode(True)
-        else:
-            mainWindow.darkMode(False)
-        config.export()
-        
-        
-
-def manufacturerSelected(event):
-    engineList.delete(0,END)
-    for engine in loadedEngines.keys():
-        if loadedEngines[engine][1].upper() == manufacturerList.get(manufacturerList.curselection()):
-            engineList.insert(END,engine)
+# center column
+returnBtn.grid      (row=4, column=0, columnspan=2, sticky="nsew")
 
 
-# gui variables
-startBtn = Button(root, text="START \nSIMULATOR", command=engineClass.startSimulator)
-closeBtn = Button(root, text="CLOSE", command=root.destroy)
+darkModeCheck.config    (font=("Montserrat", 20))
+analyticsCheck.config   (font=("Montserrat", 20))
+updateCheck.config      (font=("Montserrat", 20))
+metricCheck.config      (font=("Montserrat", 20))
+returnBtn.config        (font=("Montserrat", 20))
+themeLabel.config       (font=("Montserrat", 20))
+themeList.config        (justify="right", font=("Montserrat", 15))
 
-manufacturerList = Listbox(root, height=15, width=50, selectmode="SINGLE", exportselection=False)
-engineList = Listbox(root, height=15, width=50, selectmode="SINGLE", exportselection=False)
-
-manufacturerList.bind('<<ListboxSelect>>', manufacturerSelected)
-
+i = 0
+while i < 2:
+    configWindow.columnconfigure(i,weight=1)
+    i += 1
+i=0
+while i < 5:
+    configWindow.rowconfigure(i,weight=1)
+    i += 1
 
 
 # menu bar
-
 mainmenu = Menu(root)
-# File
 filemenu = Menu(mainmenu, tearoff = 0)
-# filemenu.add_command(label = "Open")
-# filemenu.add_command(label = "Save")
 filemenu.add_separator()
-filemenu.add_command(label = "Exit", command = root.destroy)
+filemenu.add_command(label = "Exit", command = tkinterApp.close)
 mainmenu.add_cascade(label="File", menu=filemenu)
-
-
 toolmenu = Menu(mainmenu, tearoff = 0)
-toolmenu.add_command(label = "Refresh Engines", command = engineClass.findEngines)
-toolmenu.add_command(label = "Dark Mode", command = mainWindow.toggelDarkmode)
-toolmenu.add_command(label = "Reset main.mr", command = tools.resetMain)
+toolmenu.add_command(label = "Refresh Engines", command = tkinterApp.updateManufacturerList)
+toolmenu.add_command(label = "Dark Mode", command = tkinterApp.toggleDarkmode)
 mainmenu.add_cascade(label = "Tools", menu = toolmenu)
-
-# Help
 helpmenu = Menu(mainmenu, tearoff = 0)
-helpmenu.add_command(label = "Github", command = lambda: webbrowser.open("https://github.com/sta0003/EngineSimulatorSelector"))
-helpmenu.add_command(label = "Update", command = lambda: webbrowser.open("https://github.com/sta0003/EngineSimulatorSelector/releases/latest"))
+helpmenu.add_command(label = "Github", command = lambda: webbrowser.open("https://github.com/sta0003/EngineHoist"))
+helpmenu.add_command(label = "Update", command = lambda: webbrowser.open("https://github.com/sta0003/EngineHoist/releases/latest"))
 helpmenu.add_separator()
-helpmenu.add_command(label = "Help", command = lambda: webbrowser.open("https://github.com/sta0003/EngineSimulatorSelector/blob/main/help.md"))
-helpmenu.add_command(label = "README", command = lambda: webbrowser.open("https://github.com/sta0003/EngineSimulatorSelector/blob/main/README.md"))
+helpmenu.add_command(label = "Help", command = lambda: webbrowser.open("https://github.com/sta0003/EngineHoist/blob/main/help.md"))
+helpmenu.add_command(label = "README", command = lambda: webbrowser.open("https://github.com/sta0003/EngineHoist/blob/main/README.md"))
 mainmenu.add_cascade(label = "Documentation", menu = helpmenu)
-
 root.config(menu = mainmenu)
 
-
-
-    
-
-# main loop
-config.loadConfig()
-engineClass.findEngines()
-start()
+try: pyi_splash.close()
+except: pass
+main()
+tkinterApp.mainWindow()
 root.mainloop()
