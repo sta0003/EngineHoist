@@ -12,8 +12,8 @@
 # E005 Failed to set engine
 # E006 Failed to start simulator
 
+# https://docs.python.org/3/library/tkinter.html
 
-//https://docs.python.org/3/library/tkinter.html
 from tkinter import *
 import glob
 import os
