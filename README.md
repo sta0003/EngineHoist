@@ -26,7 +26,7 @@ then searches inside the engine files for the function names and one start simul
 full install of simulator and Engine Hoist:
 https://youtu.be/faZYpp-vGeg
 
-![image](https://user-images.githubusercontent.com/65334355/187917960-553c4921-2938-4c5a-bc3d-3843af9a0a54.png)
+<!-- ![image](https://user-images.githubusercontent.com/65334355/187917960-553c4921-2938-4c5a-bc3d-3843af9a0a54.png) -->
 ![image](https://user-images.githubusercontent.com/65334355/198883475-68558dd0-acf8-4529-acff-57ca799b95c8.png)
 
 
