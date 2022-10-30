@@ -18,6 +18,8 @@
 # along with Engine Hoist.  If not, see <https://www.gnu.org/licenses/>.
 # 
 
+import api
+
 from random import randint as rand
 from tkinter import messagebox
 from tkinter import *
@@ -27,6 +29,7 @@ try: import pyi_splash
 except: pass
 import requests
 import glob
+import api
 import re
 import os
 
@@ -207,7 +210,6 @@ class tkinterApp:
         manufacturerList.config(bg="#2d2d2d", fg="#ffffff")
         engineList.config(bg="#2d2d2d", fg="#ffffff")
         startBtn.config(bg="#2d2d2d", fg="#ffffff")
-        closeBtn.config(bg="#2d2d2d", fg="#ffffff")
         settingsBtn.config(bg="#2d2d2d", fg="#ffffff")
         root.config(bg="#2d2d2d")
 
@@ -229,7 +231,6 @@ class tkinterApp:
         manufacturerList.config(bg="#ffffff", fg="#000000")
         engineList.config(bg="#ffffff", fg="#000000")
         startBtn.config(bg="#ffffff", fg="#000000")
-        closeBtn.config(bg="#ffffff", fg="#000000")
         settingsBtn.config(bg="#ffffff", fg="#000000")
         root.config(bg="#ffffff")
         
@@ -265,6 +266,7 @@ class tkinterApp:
         tkinterApp.close()
     
     def close():
+        if shareAnalytics: api.close(version)
         root.destroy()
 
 class config:
@@ -354,6 +356,7 @@ class simulator:
                     createMainFile(engine, theme)
                     break
         root.withdraw()
+        if shareAnalytics: api.simStart(vehicleInfo.getEngineName(engine), version)
         if platform.system() == "Linux":
             os.chdir(os.getcwd() + "/build")
             os.system(os.getcwd() + "/engine-sim-app")
@@ -370,12 +373,13 @@ class simulator:
             messagebox.showerror("ERROR","No engine selected")
         else:
             simulator.start()
-    
+
 
 # Main function
 def main():
     global engineLocations
     config.load()
+    if shareAnalytics: api.start(version)
     tkinterApp.updateThemeList()
     for location in glob.glob(enginesFileLocation, recursive=True):
         engineLocations.append(location.replace("\\","/"))
@@ -417,8 +421,7 @@ def selfUpdater():
     downloadRealease = requests.get("https://api.github.com/repos/sta0003/EngineHoist/releases").json()[0]["assets"][0]["browser_download_url"]
 
 ##### MAIN WINDOW #####
-startBtn = Button(mainWindow, text="START \nSIMULATOR", command=simulator.start)
-closeBtn = Button(mainWindow, text="CLOSE", command=tkinterApp.close)
+startBtn = Button(mainWindow, text="PLAY", command=simulator.start)
 manufacturerList = Listbox(mainWindow, height=15, width=50, selectmode="SINGLE", exportselection=False)
 engineList = Listbox(mainWindow, height=15, width=50, selectmode="SINGLE", exportselection=False)
 settingsBtn = Button(mainWindow, text="SETTINGS", command=tkinterApp.configWindow)
@@ -427,13 +430,11 @@ root.bind('<KeyPress>', tkinterApp.onKeyPress)
 root.bind('<Escape>', tkinterApp.onEscape)
 root.protocol("WM_DELETE_WINDOW", tkinterApp.close)
 
-startBtn.grid(row=1, column=0, columnspan=3, sticky="nsew")
-closeBtn.grid(row=1, column=3, columnspan=1, sticky="nsew")
+startBtn.grid(row=1, column=0, columnspan=6, sticky="nsew")
 manufacturerList.grid(row=0, column=0, columnspan=2 , sticky="nsew")
 engineList.grid(row=0, column=2, columnspan=2, sticky="nsew")
 settingsBtn.grid(row=2, column=0, columnspan=4, sticky="nsew")
 startBtn.config(font=("Montserrat", 30))
-closeBtn.config(font=("Montserrat", 30))
 manufacturerList.config(font=("Montserrat", 15))
 engineList.config(font=("Montserrat", 15))
 settingsBtn.config(font=("Montserrat", 15))
