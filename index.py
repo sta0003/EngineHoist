@@ -39,7 +39,7 @@ configLocation      = "./hoist.cfg"
 themesLocation      = "./assets/themes/*.mr"
 appLocation         = "engine-sim-app.exe"
 mainDir             = os.getcwd()
-version             = "1.4.0-development"
+version             = "1.5.0"
 engineLocations     = []
 failedEngines       = []
 
@@ -339,35 +339,40 @@ class config:
 
 class simulator:
     def start():
-        # try:
-        for engine in engineLocations:
-            if len(engineList.curselection()) <1: break
-            if "UNKNOWN" in engineList.get(engineList.curselection()):
-                messagebox.showerror("Error", "This engine is not supported by this version of Engine Hoist. \n Unknow engine format.")
-                return
+        try:
+            for engine in engineLocations:
+                if len(engineList.curselection()) <1: break
+                if "UNKNOWN" in engineList.get(engineList.curselection()):
+                    messagebox.showerror("Error", "This engine is not supported by this version of Engine Hoist. \n Unknow engine format.")
+                    return
+                else:
+                    if engine in failedEngines:
+                        continue
+                    elif engineList.get(engineList.curselection()) == vehicleInfo.getEngineName(engine) + " ("+ vehicleInfo.getEngineFileName(engine) +")":
+                        try:
+                            theme = themeList.get(themeList.curselection())
+                        except:
+                            theme = "Default"
+                        createMainFile(engine, theme)
+                        break
+            root.withdraw()
+            if shareAnalytics: api.simStart(vehicleInfo.getEngineName(engine), version)
+            if platform.system() == "Linux":
+                os.chdir(os.getcwd() + "/build")
+                os.system(os.getcwd() + "/engine-sim-app")
             else:
-                if engine in failedEngines:
-                    continue
-                elif engineList.get(engineList.curselection()) == vehicleInfo.getEngineName(engine) + " ("+ vehicleInfo.getEngineFileName(engine) +")":
-                    try:
-                        theme = themeList.get(themeList.curselection())
-                    except:
-                        theme = "Default"
-                    createMainFile(engine, theme)
-                    break
-        root.withdraw()
-        if shareAnalytics: api.simStart(vehicleInfo.getEngineName(engine), version)
-        if platform.system() == "Linux":
-            os.chdir(os.getcwd() + "/build")
-            os.system(os.getcwd() + "/engine-sim-app")
-        else:
-            os.chdir(os.getcwd() + "/bin")
-            os.system(appLocation)
-        root.deiconify()
-        os.chdir(mainDir)
-        # except Exception as e:
-        #     print(e)
-        #     messagebox.showerror("ERROR","Failed to start simulator\n(Error: {})".format(e))
+                os.chdir(os.getcwd() + "/bin")
+                os.system(appLocation)
+            root.deiconify()
+            os.chdir(mainDir)
+        except Exception as e:
+            if shareAnalytics: 
+                api.error(e, version)
+                messagebox.showerror("ERROR","Failed to start simulator\n(Error: {})".format(e))
+            else:
+                if messagebox.askyesno("ERROR", "Submit error log?", icon="question"):
+                    api.error(e, version)
+            
     def validate():
         if len(engineList.curselection()) <1:
             messagebox.showerror("ERROR","No engine selected")
