@@ -1,7 +1,9 @@
 # Engine Hoist
 ![logo](https://user-images.githubusercontent.com/65334355/187918447-ddb972a6-ce34-4173-994f-a3c7f5ca97d8.png)
 
-unofficial
+unofficial 
+(Engine Hoist has been archived as engine swapping is now a built-in feature of Engine Simulator)
+"Thanks you everyone that have used and contributed to this project"
 
 Engine Hoist is designed to make your life of changing your engines easy, providing a simple gui for you to select,
 the engine you want and st art the simulator without any need to change the config files.
